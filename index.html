@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <title>Blockly till WebAssembly</title>
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+</head>
+<body>
+  <h1>Blockly → WebAssembly</h1>
+  <div id="blocklyDiv" style="height: 400px; width: 100%;"></div>
+  <xml id="toolbox" style="display: none">
+    <block type="text_print"></block>
+    <block type="math_number"></block>
+    <block type="text"></block>
+    <block type="custom_add"></block>
+  </xml>
+
+  <button onclick="compileAndRun('test')">Kompilera & Kör</button>
+  <pre id="output"></pre>
+
+  <!-- Load WABT UMD bundle (exposes window.WabtModule) -->
+  <script src="https://unpkg.com/wabt@1.0.36/index.js"></script>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
