@@ -19,10 +19,18 @@ window.compileAndRun = async function compileAndRun() {
   const wasmModule = wabt.parseWat('generated.wat', watSource);
   const { buffer } = wasmModule.toBinary({ log: true });
 
-  // 5) Instantiate with our 'print' import
+
   const importObject = {
     env: {
-      print: value => console.log('WASM print:', value)
+      print_text: (ptr, len) => {
+        const memory = instance.exports.memory; // use the real memory
+        const bytes = new Uint8Array(memory.buffer, ptr, len);
+        const text = new TextDecoder('utf8').decode(bytes);
+        alert('WASM print: ' + text);
+      },
+      print_num: (num) => {
+        alert('WASM print: ' + num);
+      }
     }
   };
   const { instance } = await WebAssembly.instantiate(buffer, importObject);
@@ -30,30 +38,58 @@ window.compileAndRun = async function compileAndRun() {
   // 6) Call the exported 'main'
   instance.exports.main?.();
 };
+function isNumericExpression(expr) {
+  return (
+    expr.type === 'LiteralNumber' ||
+    expr.type === 'BinaryExpression' // all math is numeric for now
+  );
+}
 
 function blockToAST(block) {
   if (!block) return null;
 
   switch (block.type) {
-    case 'text_print':
+    case 'text_print': {
+      const argBlock = block.getInputTargetBlock('TEXT');
+      const argAST = blockToAST(argBlock);
+
+      // Pick correct print function based on argument type
+      const calleeName = isNumericExpression(argAST) ? 'print_num' : 'print_text';
+
       return {
         type: 'ExpressionStatement',
         expression: {
           type: 'CallExpression',
-          callee: { type: 'Identifier', name: 'print' },
-          arguments: [blockToAST(block.getInputTargetBlock('TEXT'))]
+          callee: { type: 'Identifier', name: calleeName },
+          arguments: [argAST]
         }
       };
+    }
+    case 'math_arithmetic': {
+      const opToken = block.getFieldValue('OP');
+      const opMap = {
+        ADD: 'add',
+        MINUS: 'sub',
+        MULTIPLY: 'mul',
+        DIVIDE: 'div'
+      };
 
+      return {
+        type: 'BinaryExpression',
+        operator: opMap[opToken],
+        left:  blockToAST(block.getInputTargetBlock('A')),
+        right: blockToAST(block.getInputTargetBlock('B'))
+      };
+    }
     case 'text':
       return {
-        type: 'Literal',
+        type: 'LiteralText',
         value: block.getFieldValue('TEXT')
       };
 
     case 'math_number':
       return {
-        type: 'Literal',
+        type: 'LiteralNumber',
         value: Number(block.getFieldValue('NUM'))
       };
     case 'custom_add':

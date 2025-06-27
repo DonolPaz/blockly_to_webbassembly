@@ -1,44 +1,52 @@
-// ast_to_wat.js
-
 /**
  * Convert an array of AST statements into a full WAT module.
  * @param {Array<Object>} astStatements – list of AST nodes (statements).
  * @returns {string} A complete WAT module as a string.
  */
 export function programToWat(astStatements) {
-  // 1) Module header / prolog
   const lines = [
     '(module',
-    '  ;; import the host print function',
-    '  (import "env" "print" (func $print (param i32)))',
-    '',
-    '  ;; main entry point',
-    '  (func $main (export "main")'
+    '  (import "env" "print_text" (func $print_text (param i32 i32)))',
+    '  (import "env" "print_num" (func $print_num (param i32)))',
+    '  (memory (export "memory") 1)',
+    ''
   ];
 
-  // 2) Insert generated instructions here
+  const dataSegments = [];
+  const stringTable = new Map();
+  const memoryOffsetRef = { value: 0 };
+
+  // Generate code from statements
+  const mainBody = ['  (func $main (export "main")'];
   for (const stmt of astStatements) {
-    const instrLines = generateStatement(stmt);
-    for (const instr of instrLines) {
-      lines.push('    ' + instr);
-    }
+    const instrLines = generateStatement(stmt, {
+      stringTable,
+      dataSegments,
+      memoryOffsetRef
+    });
+    mainBody.push(...instrLines.map(line => '    ' + line));
+  }
+  mainBody.push('  )');
+
+  // Emit data segments for string literals
+  for (const { offset, value } of dataSegments) {
+    lines.push(`  (data (i32.const ${offset}) "${escapeWatString(value)}")`);
   }
 
-  // 3) Close main and module
-  lines.push('  )', ')');
+  lines.push(...mainBody, ')');
   return lines.join('\n');
 }
 
 /**
  * Generate WAT instructions for a single AST statement.
  * @param {Object} stmt – An AST statement node.
- * @returns {Array<string>} List of WAT instruction lines (no indentation).
+ * @param {Object} ctx – Compilation context.
+ * @returns {Array<string>} WAT lines
  */
-function generateStatement(stmt) {
+function generateStatement(stmt, ctx) {
   switch (stmt.type) {
     case 'ExpressionStatement':
-      // Delegate to expression generator
-      return generateExpression(stmt.expression);
+      return generateExpression(stmt.expression, ctx);
     default:
       throw new Error(`Unknown statement type: ${stmt.type}`);
   }
@@ -47,33 +55,65 @@ function generateStatement(stmt) {
 /**
  * Generate WAT instructions for an expression AST node.
  * @param {Object} expr – An AST expression node.
+ * @param {Object} ctx – Compilation context.
  * @returns {Array<string>} List of WAT instruction lines.
  */
-function generateExpression(expr) {
+function generateExpression(expr, ctx) {
   switch (expr.type) {
-    case 'Literal':
-      // Numeric literal -> push constant on the stack
+    case 'LiteralNumber':
       return [`i32.const ${expr.value}`];
 
-    case 'CallExpression':
-      // Generate code for each argument (they push their values)
+    case 'LiteralText': {
+      const { stringTable, dataSegments, memoryOffsetRef } = ctx;
+      if (!stringTable.has(expr.value)) {
+        const offset = memoryOffsetRef.value;
+        stringTable.set(expr.value, offset);
+        dataSegments.push({ offset, value: expr.value });
+        memoryOffsetRef.value += expr.value.length;
+      }
+      const offset = stringTable.get(expr.value);
+      return [`i32.const ${offset}\n    i32.const ${expr.value.length}`]; // pointer to string in memory
+    }
+
+    case 'CallExpression': {
       const code = [];
       for (const arg of expr.arguments) {
-        code.push(...generateExpression(arg));
+        code.push(...generateExpression(arg, ctx));
       }
-      // Call the function (callee.name must match an exported func name)
       code.push(`call $${expr.callee.name}`);
       return code;
+    }
+    case 'BinaryExpression': {
+      const opMap = {
+        'add': 'i32.add',
+        'sub': 'i32.sub',
+        'mul': 'i32.mul',
+        'div': 'i32.div_s'
+      };
 
-    case 'BinaryExpression':
-      // first evaluate left & right
+      const opInstr = opMap[expr.operator];
+      if (!opInstr) {
+        throw new Error(`Unsupported binary operator: ${expr.operator}`);
+      }
+
       return [
-        ...generateExpression(expr.left),
-        ...generateExpression(expr.right),
-        'i32.add'            
+        ...generateExpression(expr.left, ctx),
+        ...generateExpression(expr.right, ctx),
+        opInstr
       ];
-
-    default:
-      throw new Error(`Unknown expression type: ${expr.type}`);
+    }
   }
+}
+
+/**
+ * Escape special characters in a WAT string literal.
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeWatString(str) {
+  return str
+    .replace(/\\/g, '\\5c')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\0a')
+    .replace(/\r/g, '\\0d');
 }
