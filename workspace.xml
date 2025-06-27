@@ -1,0 +1,9 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <block type="text_print" id=":jOiTT2L7O4}DkLGNB}X" x="242" y="61">
+    <value name="TEXT">
+      <block type="math_number" id="j:8)eVpelv4j:|zm-c?$">
+        <field name="NUM">6</field>
+      </block>
+    </value>
+  </block>
+</xml>

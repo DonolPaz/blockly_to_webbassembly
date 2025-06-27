@@ -1,0 +1,16 @@
+{
+  "name": "blockly-to-wasm",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build:llvm": "cd llvm && make build",
+    "serve": "http-server . -c-1"
+  },
+  "dependencies": {
+    "blockly": "^12.1.0",
+    "jsdom": "^22.1.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
