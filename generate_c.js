@@ -1,11 +1,17 @@
 // generate_c.js
 import { readFileSync, writeFileSync } from 'fs';
-import { programToC }      from './ast_to_c.js';
-import { JSDOM }           from 'jsdom';
+import { programToC }                  from './ast_to_c.js';
+import { JSDOM }                       from 'jsdom';
+import path                            from 'path';
+import { fileURLToPath }               from 'url';
 
-// 1) Load an HTML file that contains your Blockly workspace XML
-//    or read a saved `.xml` workspace export. For example:
-const workspaceXml = readFileSync('workspace.xml', 'utf8');
+// Convert import.meta.url to filesystem path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+// Point directly at workspace.xml in the same folder
+const xmlPath       = path.join(__dirname, 'workspace.xml');
+const workspaceXml  = readFileSync(xmlPath, 'utf8');
 
 // 2) Create a headless DOM and inject Blockly to parse the XML  
 const dom = new JSDOM(`<!DOCTYPE html><body>
