@@ -4,17 +4,18 @@
  * @returns {string} A complete WAT module as a string.
  */
 export function programToWat(astStatements) {
-  const lines = [
-    '(module',
-    '  (import "env" "print_text" (func $print_text (param i32 i32)))',
-    '  (import "env" "print_num" (func $print_num (param i32)))',
-    '  (memory (export "memory") 1)',
-    ''
-  ];
+
+  const usedFeatures = {
+    print_text: false,
+    print_num: false,
+    i32_pow: false,
+  };
 
   const dataSegments = [];
   const stringTable = new Map();
   const memoryOffsetRef = { value: 0 };
+
+  const lines = ['(module'];
 
   // Generate code from statements
   const mainBody = ['  (func $main (export "main")'];
@@ -22,12 +23,46 @@ export function programToWat(astStatements) {
     const instrLines = generateStatement(stmt, {
       stringTable,
       dataSegments,
-      memoryOffsetRef
+      memoryOffsetRef,
+      usedFeatures
     });
     mainBody.push(...instrLines.map(line => '    ' + line));
   }
   mainBody.push('  )');
+  // Add imports only if used
+  if (usedFeatures.print_text) {
+    lines.push('  (import "env" "print_text" (func $print_text (param i32 i32)))');
+  }
+  if (usedFeatures.print_num) {
+    lines.push('  (import "env" "print_num" (func $print_num (param i32)))');
+  }
+  if (usedFeatures.i32_pow) {
+  lines.push(`
+(func $i32_pow (param $base i32) (param $exp i32) (result i32)
+  (local $result i32)
+  i32.const 1
+  local.set $result
+  block
+    loop
+      local.get $exp
+      i32.eqz
+      br_if 1
+      local.get $result
+      local.get $base
+      i32.mul
+      local.set $result
+      local.get $exp
+      i32.const 1
+      i32.sub
+      local.set $exp
+      br 0
+    end
+  end
+  local.get $result
+  )`);
+}
 
+  lines.push('  (memory (export "memory") 1)');
   // Emit data segments for string literals
   for (const { offset, value } of dataSegments) {
     lines.push(`  (data (i32.const ${offset}) "${escapeWatString(value)}")`);
@@ -62,7 +97,6 @@ function generateExpression(expr, ctx) {
   switch (expr.type) {
     case 'LiteralNumber':
       return [`i32.const ${expr.value}`];
-
     case 'LiteralText': {
       const { stringTable, dataSegments, memoryOffsetRef } = ctx;
       if (!stringTable.has(expr.value)) {
@@ -77,6 +111,11 @@ function generateExpression(expr, ctx) {
 
     case 'CallExpression': {
       const code = [];
+      if (expr.callee.name === "print_text") {
+        ctx.usedFeatures.print_text = true;
+      } else if (expr.callee.name === "print_num") {
+        ctx.usedFeatures.print_num = true;
+      }
       for (const arg of expr.arguments) {
         code.push(...generateExpression(arg, ctx));
       }
@@ -90,7 +129,14 @@ function generateExpression(expr, ctx) {
         'mul': 'i32.mul',
         'div': 'i32.div_s'
       };
-
+      if (expr.operator === 'pow') {
+        ctx.usedFeatures.i32_pow = true;
+        return [
+          ...generateExpression(expr.left, ctx),
+          ...generateExpression(expr.right, ctx),
+          'call $i32_pow'
+        ];
+    }
       const opInstr = opMap[expr.operator];
       if (!opInstr) {
         throw new Error(`Unsupported binary operator: ${expr.operator}`);

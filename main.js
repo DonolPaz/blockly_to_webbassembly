@@ -9,6 +9,8 @@ window.compileAndRun = async function compileAndRun() {
   const ast       = topBlocks.map(blockToAST);
   const watSource = programToWat(ast);
 
+  console.log('Generated WAT:\n', watSource);
+
   // 2) Show WAT in the <pre>
   document.getElementById('output').textContent = watSource;
 
@@ -71,14 +73,15 @@ function blockToAST(block) {
         ADD: 'add',
         MINUS: 'sub',
         MULTIPLY: 'mul',
-        DIVIDE: 'div'
+        DIVIDE: 'div',
+        POWER: 'pow'
       };
 
       return {
         type: 'BinaryExpression',
         operator: opMap[opToken],
         left:  blockToAST(block.getInputTargetBlock('A')),
-        right: blockToAST(block.getInputTargetBlock('B'))
+        right: blockToAST(block.getInputTargetBlock('B')),
       };
     }
     case 'text':
