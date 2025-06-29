@@ -23,8 +23,10 @@
   </category>
 </xml>
 
-  <button onclick="compileAndRun('test')">Kompilera & Kör</button>
+  <button type="button" onclick="compileAndRun()">Compile & Run (WABT)</button>
   <pre id="output"></pre>
+
+  <button type="button" onclick="compileCAndRun()">Compile & Run (C)</button> 
 
   <!-- Load WABT UMD bundle (exposes window.WabtModule) -->
   <script src="https://unpkg.com/wabt@1.0.36/index.js"></script>

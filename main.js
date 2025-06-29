@@ -1,5 +1,7 @@
 // main.js
 import { programToWat } from './ast_to_wat.js';
+import { programToC } from './ast_to_c.js';
+
 
 let workspace;
 
@@ -40,6 +42,51 @@ window.compileAndRun = async function compileAndRun() {
   // 6) Call the exported 'main'
   instance.exports.main?.();
 };
+
+
+window.compileCAndRun = async function compileCAndRun() {
+  // 1) Build AST (same as before)
+  const ast = workspace.getTopBlocks(true).map(blockToAST);
+
+  // 2) Generate C source from AST
+  const cSource = programToC(ast);
+  console.log('Generated C:\n', cSource);
+
+  // 3) POST the C to your build endpoint
+  const resp = await fetch('http://localhost:3000/api/compile-c', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: cSource })
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error('Compile error:\n' + text);
+  }
+
+  // 4) Receive back the .wasm binary
+  const wasmBinary = await resp.arrayBuffer();
+
+  // 5) Instantiate & run with same imports
+  const importObject = {
+    env: {
+      printf: x => console.log('EMCC print:', x)
+    }
+  };
+  const { instance } = await WebAssembly.instantiate(wasmBinary, importObject);
+
+  // 6) Call main
+  instance.exports.main?.();
+};
+
+
+
+
+
+
+
+
+
+
 function isNumericExpression(expr) {
   return (
     expr.type === 'LiteralNumber' ||
