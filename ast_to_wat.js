@@ -82,6 +82,33 @@ function generateStatement(stmt, ctx) {
   switch (stmt.type) {
     case 'ExpressionStatement':
       return generateExpression(stmt.expression, ctx);
+    case 'IfStatement': {
+      const lines = [];
+
+      // Generate condition
+      lines.push(...generateExpression(stmt.test, ctx));
+
+      lines.push('(if');
+      lines.push('  (then');
+      for (const innerStmt of stmt.consequent) {
+        const innerLines = generateStatement(innerStmt, ctx);
+        lines.push(...innerLines.map(line => '    ' + line));
+      }
+      lines.push('  )');
+
+      if (stmt.alternate) {
+        lines.push('  (else');
+        for (const innerStmt of stmt.alternate) {
+          const innerLines = generateStatement(innerStmt, ctx);
+          lines.push(...innerLines.map(line => '    ' + line));
+        }
+        lines.push('  )');
+      }
+
+      lines.push(')'); // close (if ...)
+      return lines;
+    }
+
     default:
       throw new Error(`Unknown statement type: ${stmt.type}`);
   }
@@ -124,10 +151,16 @@ function generateExpression(expr, ctx) {
     }
     case 'BinaryExpression': {
       const opMap = {
-        'add': 'i32.add',
-        'sub': 'i32.sub',
-        'mul': 'i32.mul',
-        'div': 'i32.div_s'
+        add: 'i32.add',
+        sub: 'i32.sub',
+        mul: 'i32.mul',
+        div: 'i32.div_s',
+        eq: 'i32.eq',
+        ne: 'i32.ne',
+        lt_s: 'i32.lt_s',
+        gt_s: 'i32.gt_s',
+        le_s: 'i32.le_s',
+        ge_s: 'i32.ge_s',
       };
       if (expr.operator === 'pow') {
         ctx.usedFeatures.i32_pow = true;

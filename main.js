@@ -49,6 +49,21 @@ function isNumericExpression(expr) {
 
 function blockToAST(block) {
   if (!block) return null;
+    const opMap = {
+    // Arithmetic
+    add: 'i32.add',
+    sub: 'i32.sub',
+    mul: 'i32.mul',
+    div: 'i32.div_s',
+
+    // Comparison
+    eq: 'i32.eq',
+    ne: 'i32.ne',
+    lt_s: 'i32.lt_s',
+    le_s: 'i32.le_s',
+    gt_s: 'i32.gt_s',
+    ge_s: 'i32.ge_s'
+  };
 
   switch (block.type) {
     case 'text_print': {
@@ -69,13 +84,6 @@ function blockToAST(block) {
     }
     case 'math_arithmetic': {
       const opToken = block.getFieldValue('OP');
-      const opMap = {
-        ADD: 'add',
-        MINUS: 'sub',
-        MULTIPLY: 'mul',
-        DIVIDE: 'div',
-        POWER: 'pow'
-      };
 
       return {
         type: 'BinaryExpression',
@@ -89,18 +97,54 @@ function blockToAST(block) {
         type: 'LiteralText',
         value: block.getFieldValue('TEXT')
       };
+    case 'controls_if': {
+      const testBlock = block.getInputTargetBlock('IF0');
+      const test = blockToAST(testBlock);
 
+      const thenBlock = block.getInputTargetBlock('DO0');
+      const elseBlock = block.getInputTargetBlock('ELSE');
+
+      // Helper to gather a sequence of statements
+      function blockListToStatements(firstBlock) {
+        const stmts = [];
+        let current = firstBlock;
+        while (current) {
+          const ast = blockToAST(current);
+          if (ast) stmts.push(ast);
+          current = current.getNextBlock();
+        }
+        return stmts;
+      }
+
+      return {
+        type: 'IfStatement',
+        test,
+        consequent: blockListToStatements(thenBlock),
+        alternate: elseBlock ? blockListToStatements(elseBlock) : []
+      };
+    }
+    case 'logic_compare': {
+      const op = block.getFieldValue('OP'); // EQ, NEQ, LT, LTE, GT, GTE
+      const opMap = {
+        EQ: 'eq',
+        NEQ: 'ne',
+        LT: 'lt_s',
+        LTE: 'le_s',
+        GT: 'gt_s',
+        GTE: 'ge_s'
+      };
+
+      return {
+        type: 'BinaryExpression',
+        operator: opMap[op],
+        left: blockToAST(block.getInputTargetBlock('A')),
+        right: blockToAST(block.getInputTargetBlock('B')),
+      };
+    }
     case 'math_number':
       return {
         type: 'LiteralNumber',
         value: Number(block.getFieldValue('NUM'))
-      };
-    case 'custom_add':
-      return {
-        type: 'BinaryExpression',
-        operator: 'add',
-        left:  blockToAST(block.getInputTargetBlock('A')),
-        right: blockToAST(block.getInputTargetBlock('B'))
       };
 
     default:
@@ -108,26 +152,8 @@ function blockToAST(block) {
   }
 }
 
-// Define custom blocks first
-function defineBlocks() {
-  Blockly.Blocks['custom_add'] = {
-    init: function() {
-      this.appendValueInput("A")
-          .setCheck("Number")
-          .appendField("lägg ihop");
-      this.appendValueInput("B")
-          .setCheck("Number")
-          .appendField("och");
-      this.setInputsInline(true);
-      this.setOutput(true, "Number");
-      this.setColour(230);
-    }
-  };
-}
-
 // Initialize on page load
 window.addEventListener('load', function() {
-  defineBlocks(); // Define blocks first
   workspace = Blockly.inject('blocklyDiv', {
     toolbox: document.getElementById('toolbox')
   });
