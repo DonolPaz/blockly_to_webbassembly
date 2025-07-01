@@ -143,6 +143,42 @@ function blockToAST(block) {
 
     default:
       return { type: 'Unknown', blockType: block.type };
+
+    case 'logic_operation': {
+      const op = block.getFieldValue('OP'); // AND or OR
+      const opMap = {
+        AND: 'and',
+        OR: 'or'
+      };
+
+      return {
+        type: 'BinaryExpression',
+        operator: opMap[op],
+        left: blockToAST(block.getInputTargetBlock('A')),
+        right: blockToAST(block.getInputTargetBlock('B'))
+      };
+    }
+    case 'controls_repeat_ext': {
+      const timesExpr = blockToAST(block.getInputTargetBlock('TIMES'));
+      const bodyBlock = block.getInputTargetBlock('DO');
+
+      function blockListToStatements(firstBlock) {
+        const stmts = [];
+        let current = firstBlock;
+        while (current) {
+          const ast = blockToAST(current);
+          if (ast) stmts.push(ast);
+          current = current.getNextBlock();
+        }
+        return stmts;
+      }
+
+      return {
+        type: 'RepeatStatement',
+        times: timesExpr,
+        body: blockListToStatements(bodyBlock),
+      };
+    }
   }
 }
 
