@@ -45,38 +45,59 @@ window.compileAndRun = async function compileAndRun() {
 
 
 window.compileCAndRun = async function compileCAndRun() {
-  // 1) Build AST (same as before)
-  const ast = workspace.getTopBlocks(true).map(blockToAST);
-
-  // 2) Generate C source from AST
+  // 1) Build AST and generate C
+  const ast     = workspace.getTopBlocks(true).map(blockToAST);
   const cSource = programToC(ast);
   console.log('Generated C:\n', cSource);
 
-  // 3) POST the C to your build endpoint
+  // 2) POST it to your build endpoint
   const resp = await fetch('http://localhost:3000/api/compile-c', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code: cSource })
   });
   if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error('Compile error:\n' + text);
+    throw new Error('Compile error:\n' + await resp.text());
   }
 
-  // 4) Receive back the .wasm binary
+  // 3) Get back the .wasm binary
   const wasmBinary = await resp.arrayBuffer();
 
-  // 5) Instantiate & run with same imports
+  // 4) Create the Memory & Table the module expects
+  const memory = new WebAssembly.Memory({ initial: 256 });
+  const table  = new WebAssembly.Table({ initial: 0, element: 'anyfunc' });
+
+  // 5) Build the env imports for Emscripten
   const importObject = {
     env: {
-      printf: x => console.log('EMCC print:', x)
+      memory,
+      table,
+      // Matching the print stubs in your C-generator:
+      print_num: v => console.log('EMCC print:', v),
+      print_text: (ptr, len) => {
+        const bytes = new Uint8Array(memory.buffer, ptr, len);
+        const text  = new TextDecoder().decode(bytes);
+        console.log('EMCC text:', text);
+      },
+      // Minimal Emscripten support:
+      abort: () => { throw new Error('WASM abort'); },
+      __memory_base: 0,
+      __table_base: 0
     }
   };
-  const { instance } = await WebAssembly.instantiate(wasmBinary, importObject);
 
-  // 6) Call main
-  instance.exports.main?.();
+  // 6) Instantiate & run
+  const { instance } = await WebAssembly.instantiate(wasmBinary, importObject);
+  // Emscripten exports its entry point as _main
+  const entry = instance.exports._main || instance.exports.main;
+  if (typeof entry === 'function') {
+    entry();
+  } else {
+    console.warn('No _main or main export found');
+  }
 };
+
+
 
 
 
