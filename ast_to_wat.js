@@ -108,6 +108,46 @@ function generateStatement(stmt, ctx) {
       lines.push(')'); // close (if ...)
       return lines;
     }
+    case 'RepeatStatement': {
+      const lines = [];
+      // Declare a local counter variable (i32)
+      lines.push('(local $counter i32)');
+      // Initialize counter to 0
+      lines.push('i32.const 0');
+      lines.push('local.set $counter');
+
+      // Outer block for break
+      lines.push('(block $break');
+      // Loop label
+      lines.push('  (loop $loop');
+
+      // Get current counter and times, compare counter < times
+      lines.push('    local.get $counter');
+      lines.push(...generateExpression(stmt.times, ctx));
+      lines.push('    i32.ge_s');      // condition: counter < times
+      lines.push('    br_if $break');  // break if counter >= times
+
+      // Loop body
+      for (const innerStmt of stmt.body) {
+        const innerLines = generateStatement(innerStmt, ctx);
+        lines.push(...innerLines.map(line => '    ' + line));
+      }
+
+      // Increment counter
+      lines.push('    local.get $counter');
+      lines.push('    i32.const 1');
+      lines.push('    i32.add');
+      lines.push('    local.set $counter');
+
+      // Jump back to start of loop
+      lines.push('    br $loop');
+
+      // Close loop and block
+      lines.push('  )');
+      lines.push(')');
+
+      return lines;
+    }
 
     default:
       throw new Error(`Unknown statement type: ${stmt.type}`);
@@ -161,6 +201,8 @@ function generateExpression(expr, ctx) {
         gt_s: 'i32.gt_s',
         le_s: 'i32.le_s',
         ge_s: 'i32.ge_s',
+        and: 'i32.and',   // and
+        or: 'i32.or',     // or
       };
       if (expr.operator === 'pow') {
         ctx.usedFeatures.i32_pow = true;

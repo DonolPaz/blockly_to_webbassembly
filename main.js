@@ -117,21 +117,6 @@ function isNumericExpression(expr) {
 
 function blockToAST(block) {
   if (!block) return null;
-    const opMap = {
-    // Arithmetic
-    add: 'i32.add',
-    sub: 'i32.sub',
-    mul: 'i32.mul',
-    div: 'i32.div_s',
-
-    // Comparison
-    eq: 'i32.eq',
-    ne: 'i32.ne',
-    lt_s: 'i32.lt_s',
-    le_s: 'i32.le_s',
-    gt_s: 'i32.gt_s',
-    ge_s: 'i32.ge_s'
-  };
 
   switch (block.type) {
     case 'text_print': {
@@ -152,6 +137,15 @@ function blockToAST(block) {
     }
     case 'math_arithmetic': {
       const opToken = block.getFieldValue('OP');
+
+      const opMap = {
+        // Arithmetic
+        ADD: 'add',
+        MINUS: 'sub',
+        MULTIPLY: 'mul',
+        DIVIDE: 'div',
+        POWER: 'pow'
+      };
 
       return {
         type: 'BinaryExpression',
@@ -217,6 +211,42 @@ function blockToAST(block) {
 
     default:
       return { type: 'Unknown', blockType: block.type };
+
+    case 'logic_operation': {
+      const op = block.getFieldValue('OP'); // AND or OR
+      const opMap = {
+        AND: 'and',
+        OR: 'or'
+      };
+
+      return {
+        type: 'BinaryExpression',
+        operator: opMap[op],
+        left: blockToAST(block.getInputTargetBlock('A')),
+        right: blockToAST(block.getInputTargetBlock('B'))
+      };
+    }
+    case 'controls_repeat_ext': {
+      const timesExpr = blockToAST(block.getInputTargetBlock('TIMES'));
+      const bodyBlock = block.getInputTargetBlock('DO');
+
+      function blockListToStatements(firstBlock) {
+        const stmts = [];
+        let current = firstBlock;
+        while (current) {
+          const ast = blockToAST(current);
+          if (ast) stmts.push(ast);
+          current = current.getNextBlock();
+        }
+        return stmts;
+      }
+
+      return {
+        type: 'RepeatStatement',
+        times: timesExpr,
+        body: blockListToStatements(bodyBlock),
+      };
+    }
   }
 }
 
