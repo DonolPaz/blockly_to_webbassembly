@@ -10,7 +10,7 @@ import { fileURLToPath }             from 'url';
 import BlocklyCore                   from 'blockly/core';
 import 'blockly/blocks';
 
-import { programToC }                from './ast_to_c.js';
+import { programToC }                from '../ast_to_c.js';
 
 // Resolve this script's directory
 const __filename = fileURLToPath(import.meta.url);
