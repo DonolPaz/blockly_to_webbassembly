@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Blockly till WebAssembly</title>
-  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+  <script src="https://unpkg.com/blockly@11.1.1/blockly.min.js"></script>
 </head>
 <body>
   <h1>Blockly → WebAssembly</h1>
@@ -24,6 +24,14 @@
   </category>
   <category name="Loops" colour="50">
     <block type="controls_repeat_ext"></block>
+  </category>
+  <category name="Variables" colour="20">
+    <block type="variables_set">
+      <field name="VAR">x</field>
+    </block>
+    <block type="variables_get">
+      <field name="VAR">x</field>
+    </block>
   </category>
 </xml>
 

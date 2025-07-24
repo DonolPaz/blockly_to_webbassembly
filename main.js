@@ -45,50 +45,67 @@ window.compileAndRun = async function compileAndRun() {
 
 
 window.compileCAndRun = async function compileCAndRun() {
-  // 1) Build AST and generate C
+  // 1) Generera C-koden från Blockly
   const ast     = workspace.getTopBlocks(true).map(blockToAST);
   const cSource = programToC(ast);
   console.log('Generated C:\n', cSource);
 
-  // 2) POST it to your build endpoint
-  const resp = await fetch('http://localhost:3000/api/compile-c', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: cSource })
-  });
-  if (!resp.ok) {
-    throw new Error('Compile error:\n' + await resp.text());
-  }
+  // 2) Ladda clang.js (Emscripten-modul)
+  const clangModule = await createClangModule();  // skapar clang instans (anpassa efter din setup)
+  
+  // 3) Kör clang för att generera LLVM IR (.ll) från C-kod
+  // Spara C-koden i clangs virtuella FS:
+  clangModule.FS.writeFile('input.c', cSource);
 
-  // 3) Get back the .wasm binary
-  const wasmBinary = await resp.arrayBuffer();
+  // Kör clang med flaggor att generera IR i textformat:
+  const clangArgs = ['clang', '-S', '-emit-llvm', 'input.c', '-o', 'output.ll'];
+  clangModule.callMain(clangArgs);
 
-  // 4) Create the Memory & Table the module expects
+  // Läs ut LLVM IR:
+  const llvmIR = clangModule.FS.readFile('output.ll', { encoding: 'utf8' });
+  console.log('LLVM IR:\n', llvmIR);
+
+  // 4) Ladda llc.js (Emscripten-modul)
+  const llcModule = await createLlcModule();
+
+  // Skriv LLVM IR till llc virtuella FS:
+  llcModule.FS.writeFile('input.ll', llvmIR);
+
+  // Kör llc för att generera wasm:
+  // Flagga: -march=wasm32 -filetype=obj (objektfil)
+  const llcArgs = ['llc', '-march=wasm32', '-filetype=obj', 'input.ll', '-o', 'output.o'];
+  llcModule.callMain(llcArgs);
+
+  // Läs ut objektfilen (wasm objekt):
+  const wasmObject = llcModule.FS.readFile('output.o');
+
+  // 5) Här behöver du länka objektfilen till en körbar wasm-fil.
+  // Det kan göras med wasm-ld.js eller emscripten linker i browsern.
+  // För enkelhet, anta vi har wasm-ld.js:
+  const wasmLdModule = await createWasmLdModule();
+
+  // Skriv objektfil till linker FS:
+  wasmLdModule.FS.writeFile('input.o', wasmObject);
+
+  // Kör länkaren:
+  wasmLdModule.callMain(['wasm-ld', 'input.o', '-o', 'final.wasm']);
+
+  // Läs ut slutgiltiga wasm binärfilen:
+  const wasmBinary = wasmLdModule.FS.readFile('final.wasm');
+
+  // 6) Instantierea och kör wasm
   const memory = new WebAssembly.Memory({ initial: 256 });
-  const table  = new WebAssembly.Table({ initial: 0, element: 'anyfunc' });
-
-  // 5) Build the env imports for Emscripten
   const importObject = {
     env: {
       memory,
-      table,
-      // Matching the print stubs in your C-generator:
-      print_num: v => console.log('EMCC print:', v),
-      print_text: (ptr, len) => {
-        const bytes = new Uint8Array(memory.buffer, ptr, len);
-        const text  = new TextDecoder().decode(bytes);
-        console.log('EMCC text:', text);
-      },
-      // Minimal Emscripten support:
+      // ev fler importfunktioner du behöver
       abort: () => { throw new Error('WASM abort'); },
-      __memory_base: 0,
-      __table_base: 0
     }
   };
 
-  // 6) Instantiate & run
-  const { instance } = await WebAssembly.instantiate(wasmBinary, importObject);
-  // Emscripten exports its entry point as _main
+  const { instance } = await WebAssembly.instantiate(wasmBinary.buffer, importObject);
+
+  // Kör entrypoint, vanligtvis _main eller main:
   const entry = instance.exports._main || instance.exports.main;
   if (typeof entry === 'function') {
     entry();
@@ -211,7 +228,31 @@ function blockToAST(block) {
 
     default:
       return { type: 'Unknown', blockType: block.type };
+      
+    case 'variables_set': {
+      const varId = block.getFieldValue('VAR'); // This is the ID
+      const variable = workspace.getVariableMap().getVariableById(varId);
+      const name = variable?.name || 'unnamed';
 
+      console.log("Variable set name:", name);
+
+      const value = blockToAST(block.getInputTargetBlock('VALUE'));
+
+      return {
+        type: 'VariableDeclaration',
+        name,
+        value
+      };
+    }
+    case 'variables_get': {
+      const varId = block.getFieldValue('VAR');
+      const variable = workspace.getVariableMap().getVariableById(varId);
+      const name = variable?.name || 'unnamed';
+      return {
+        type: 'Identifier',
+        name
+      };
+    }
     case 'logic_operation': {
       const op = block.getFieldValue('OP'); // AND or OR
       const opMap = {

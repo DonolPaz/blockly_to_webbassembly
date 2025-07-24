@@ -3,74 +3,78 @@
  * @param {Array<Object>} astStatements – list of AST nodes (statements).
  * @returns {string} A complete WAT module as a string.
  */
-export function programToWat(astStatements) {
+  export function programToWat(astStatements) {
+    const usedFeatures = {
+      print_text: false,
+      print_num: false,
+      i32_pow: false,
+    };
 
-  const usedFeatures = {
-    print_text: false,
-    print_num: false,
-    i32_pow: false,
-  };
+    const dataSegments = [];
+    const stringTable = new Map();
+    const memoryOffsetRef = { value: 0 };
 
-  const dataSegments = [];
-  const stringTable = new Map();
-  const memoryOffsetRef = { value: 0 };
-
-  const lines = ['(module'];
-
-  // Generate code from statements
-  const mainBody = ['  (func $main (export "main")'];
-  for (const stmt of astStatements) {
-    const instrLines = generateStatement(stmt, {
+    const ctx = {
       stringTable,
       dataSegments,
       memoryOffsetRef,
-      usedFeatures
-    });
-    mainBody.push(...instrLines.map(line => '    ' + line));
-  }
-  mainBody.push('  )');
-  // Add imports only if used
-  if (usedFeatures.print_text) {
-    lines.push('  (import "env" "print_text" (func $print_text (param i32 i32)))');
-  }
-  if (usedFeatures.print_num) {
-    lines.push('  (import "env" "print_num" (func $print_num (param i32)))');
-  }
-  if (usedFeatures.i32_pow) {
-  lines.push(`
-(func $i32_pow (param $base i32) (param $exp i32) (result i32)
-  (local $result i32)
-  i32.const 1
-  local.set $result
-  block
-    loop
-      local.get $exp
-      i32.eqz
-      br_if 1
-      local.get $result
-      local.get $base
-      i32.mul
-      local.set $result
-      local.get $exp
+      usedFeatures,
+      locals: new Set(), 
+    };
+
+    const lines = ['(module'];
+
+    // Generate code from statements
+    const mainBody = ['  (func $main (export "main")'];
+    for (const stmt of astStatements) {
+      const instrLines = generateStatement(stmt, ctx);
+      mainBody.push(...instrLines.map(line => '    ' + line));
+    }
+    mainBody.push('  )');
+
+    // Add imports only if used
+    if (usedFeatures.print_text) {
+      lines.push('  (import "env" "print_text" (func $print_text (param i32 i32)))');
+    }
+    if (usedFeatures.print_num) {
+      lines.push('  (import "env" "print_num" (func $print_num (param i32)))');
+    }
+    if (usedFeatures.i32_pow) {
+      lines.push(`
+    (func $i32_pow (param $base i32) (param $exp i32) (result i32)
+      (local $result i32)
       i32.const 1
-      i32.sub
-      local.set $exp
-      br 0
-    end
-  end
-  local.get $result
-  )`);
-}
+      local.set $result
+      block
+        loop
+          local.get $exp
+          i32.eqz
+          br_if 1
+          local.get $result
+          local.get $base
+          i32.mul
+          local.set $result
+          local.get $exp
+          i32.const 1
+          i32.sub
+          local.set $exp
+          br 0
+        end
+      end
+      local.get $result
+    )`);
+    }
 
-  lines.push('  (memory (export "memory") 1)');
-  // Emit data segments for string literals
-  for (const { offset, value } of dataSegments) {
-    lines.push(`  (data (i32.const ${offset}) "${escapeWatString(value)}")`);
+    lines.push('  (memory (export "memory") 1)');
+
+    // Emit data segments for string literals
+    for (const { offset, value } of dataSegments) {
+      lines.push(`  (data (i32.const ${offset}) "${escapeWatString(value)}")`);
+    }
+
+    lines.push(...mainBody, ')');
+    return lines.join('\n');
   }
-
-  lines.push(...mainBody, ')');
-  return lines.join('\n');
-}
 
 /**
  * Generate WAT instructions for a single AST statement.
@@ -108,6 +112,16 @@ function generateStatement(stmt, ctx) {
       lines.push(')'); // close (if ...)
       return lines;
     }
+    case 'VariableDeclaration': {
+      ctx.locals.add(stmt.name); // track defined variables
+      console.log( "variable dec:" + stmt.name);
+      const lines = [];
+      lines.push(`(local $${stmt.name} i32)`);
+      lines.push(...generateExpression(stmt.value, ctx));
+      lines.push(`local.set $${stmt.name}`);
+      return lines;
+    }
+
     case 'RepeatStatement': {
       const lines = [];
       // Declare a local counter variable (i32)
@@ -189,6 +203,14 @@ function generateExpression(expr, ctx) {
       code.push(`call $${expr.callee.name}`);
       return code;
     }
+    case 'Identifier': {
+      console.log( "variable identifier:" + expr.name);
+      if (!ctx.locals.has(expr.name)) {
+        throw new Error(`Undefined variable ${expr.name}`);
+      }
+      return [`local.get $${expr.name}`];
+    }
+
     case 'BinaryExpression': {
       const opMap = {
         add: 'i32.add',
