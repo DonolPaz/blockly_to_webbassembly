@@ -115,16 +115,6 @@ window.compileCAndRun = async function compileCAndRun() {
 };
 
 
-
-
-
-
-
-
-
-
-
-
 function isNumericExpression(expr) {
   return (
     expr.type === 'LiteralNumber' ||
