@@ -123,7 +123,7 @@ function isNumericExpression(expr) {
   return (
     expr.type === 'LiteralNumber' ||
     expr.type === 'BinaryExpression' ||
-    expr.type === 'Identifier' // all math is numeric for now
+    (expr.type === 'Identifier' && expr.varType === 'number')
   );
 }
 
@@ -240,27 +240,40 @@ function blockToAST(block) {
       return { type: 'Unknown', blockType: block.type };
       
     case 'variables_set': {
-      const varId = block.getFieldValue('VAR'); // This is the ID
+      const varId = block.getFieldValue('VAR');
       const variable = workspace.getVariableMap().getVariableById(varId);
       const name = variable?.name || 'unnamed';
 
-      console.log("Variable set name:", name);
-
       const value = blockToAST(block.getInputTargetBlock('VALUE'));
+
+      // 👇 Infer type from the value AST node
+      let varType = 'unknown';
+      if (value.type === 'LiteralNumber') varType = 'number';
+      else if (value.type === 'LiteralString') varType = 'text';
+      else if (value.type === 'Identifier' && value.varType) varType = value.varType;
+
+      // 👇 Attach the type directly to the Blockly variable object
+      if (variable) variable.type = varType;
 
       return {
         type: 'VariableDeclaration',
         name,
-        value
+        value,
+        varType, // attach for downstream use if needed
       };
     }
+
     case 'variables_get': {
       const varId = block.getFieldValue('VAR');
       const variable = workspace.getVariableMap().getVariableById(varId);
       const name = variable?.name || 'unnamed';
+
+      const varType = variable?.type || 'unknown'; // 👈 retrieve the stored type
+
       return {
         type: 'Identifier',
-        name
+        name,
+        varType,
       };
     }
     case 'logic_operation': {
