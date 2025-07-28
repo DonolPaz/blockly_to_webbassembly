@@ -8,7 +8,11 @@ let workspace;
 window.compileAndRun = async function compileAndRun() {
   // 1) Build AST and generate WAT
   const topBlocks = workspace.getTopBlocks(true);
-  const ast       = topBlocks.map(blockToAST);
+  const ast = [];
+  for (const topBlock of topBlocks) {
+    const blockChain = blockChainToAST(topBlock);
+    ast.push(...blockChain);
+  }
   const watSource = programToWat(ast);
 
   console.log('Generated WAT:\n', watSource);
@@ -118,8 +122,24 @@ window.compileCAndRun = async function compileCAndRun() {
 function isNumericExpression(expr) {
   return (
     expr.type === 'LiteralNumber' ||
-    expr.type === 'BinaryExpression' // all math is numeric for now
+    expr.type === 'BinaryExpression' ||
+    expr.type === 'Identifier' // all math is numeric for now
   );
+}
+
+function blockChainToAST(startBlock) {
+  const statements = [];
+  let currentBlock = startBlock;
+  
+  while (currentBlock) {
+    const ast = blockToAST(currentBlock);
+    if (ast) {
+      statements.push(ast);
+    }
+    currentBlock = currentBlock.getNextBlock(); // Move to next connected block
+  }
+  
+  return statements;
 }
 
 function blockToAST(block) {
