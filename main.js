@@ -5,6 +5,12 @@ import { programToC } from './ast_to_c.js';
 const variableTypes = new Map();
 let workspace;
 
+function printToOutput(text) {
+  const area = document.getElementById('outputArea');
+  area.textContent += text + '\n';
+}
+
+
 window.compileAndRun = async function compileAndRun() {
   // 1) Build AST and generate WAT
   const topBlocks = workspace.getTopBlocks(true);
@@ -15,29 +21,27 @@ window.compileAndRun = async function compileAndRun() {
   }
   const watSource = programToWat(ast, variableTypes);
 
-  console.log('Generated WAT:\n', watSource);
-
-  // 2) Show WAT in the <pre>
+  // 2) Show WAT in the <pre id="output">
   document.getElementById('output').textContent = watSource;
 
-  // 3) Load WABT 
+  // 3) Load WABT
   const wabt = await window.WabtModule();
 
   // 4) Parse WAT → binary
   const wasmModule = wabt.parseWat('generated.wat', watSource);
   const { buffer } = wasmModule.toBinary({ log: true });
 
-
+  // 5) Instantiate with our 'print' imports that write to the outputArea
   const importObject = {
     env: {
       print_text: (ptr, len) => {
-        const memory = instance.exports.memory; // use the real memory
-        const bytes = new Uint8Array(memory.buffer, ptr, len);
-        const text = new TextDecoder('utf8').decode(bytes);
-        alert('WASM print: ' + text);
+        const memory = instance.exports.memory;
+        const bytes  = new Uint8Array(memory.buffer, ptr, len);
+        const text   = new TextDecoder('utf8').decode(bytes);
+        printToOutput(text);
       },
-      print_num: (num) => {
-        alert('WASM print: ' + num);
+      print_num: num => {
+        printToOutput(num.toString());
       }
     }
   };
@@ -46,6 +50,7 @@ window.compileAndRun = async function compileAndRun() {
   // 6) Call the exported 'main'
   instance.exports.main?.();
 };
+
 
 
 window.compileCAndRun = async function compileCAndRun() {

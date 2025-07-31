@@ -33,6 +33,15 @@
 
   <button type="button" onclick="compileCAndRun()">Compile & Run (C)</button> 
 
+    <!-- Input field -->
+  <label for="inputField">Input:</label>
+  <input type="text" id="inputField" placeholder="Skriv något…" />
+
+  <!-- Output field -->
+  <label for="outputArea">Output:</label>
+  <pre id="outputArea" style="background:#f7f7f7; padding:8px;"></pre>
+
+
   <!-- Load WABT UMD bundle (exposes window.WabtModule) -->
    
   <script src="https://unpkg.com/wabt@1.0.36/index.js"></script>
