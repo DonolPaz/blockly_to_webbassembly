@@ -3,7 +3,7 @@
  * @param {Array<Object>} astStatements – list of AST nodes (statements).
  * @returns {string} A complete WAT module as a string.
  */
-export function programToWat(astStatements) {
+export function programToWat(astStatements, variableTypes = new Map()) {
   const usedFeatures = {
     print_text: false,
     print_num: false,
@@ -21,6 +21,7 @@ export function programToWat(astStatements) {
     usedFeatures,
     locals: new Set(),
     loopCounter: 0,
+    variableTypes,
   };
 
   const lines = ['(module'];
@@ -34,7 +35,13 @@ export function programToWat(astStatements) {
   
   // Declare all locals at the beginning
   for (const localName of allLocals) {
-    mainBody.push(`    (local $${localName} i32)`);
+    const varType = variableTypes.get(localName) || 'number';
+    if (varType === 'text') {
+      mainBody.push(`    (local $${localName}_ptr i32)`);
+      mainBody.push(`    (local $${localName}_len i32)`);
+    } else {
+      mainBody.push(`    (local $${localName} i32)`);
+    }
     ctx.locals.add(localName);
   }
   
@@ -175,10 +182,18 @@ function generateStatement(stmt, ctx) {
     }
     case 'VariableDeclaration': {
       const lines = [];
-      // No local declaration here - already done at function start
-      console.log("variable dec:" + stmt.name);
-      lines.push(...generateExpression(stmt.value, ctx));
-      lines.push(`local.set $${stmt.name}`);
+
+      if (stmt.varType === 'text') {
+        // push [ptr, len] on stack
+        lines.push(...generateExpression(stmt.value, ctx));
+        lines.push(`local.set $${stmt.name}_len`);
+        lines.push(`local.set $${stmt.name}_ptr`);
+      } else {
+        // number type
+        lines.push(...generateExpression(stmt.value, ctx));
+        lines.push(`local.set $${stmt.name}`);
+      }
+
       return lines;
     }
 
@@ -274,9 +289,16 @@ function generateExpression(expr, ctx) {
       if (!ctx.locals.has(expr.name)) {
         throw new Error(`Undefined variable ${expr.name}`);
       }
+
+      if (expr.varType === 'text') {
+        return [
+          `local.get $${expr.name}_ptr`,
+          `local.get $${expr.name}_len`
+        ];
+      }
+
       return [`local.get $${expr.name}`];
     }
-
     case 'BinaryExpression': {
       const opMap = {
         add: 'i32.add',

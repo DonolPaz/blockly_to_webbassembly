@@ -8,7 +8,7 @@
 <body>
   <h1>Blockly → WebAssembly</h1>
   <div id="blocklyDiv" style="height: 400px; width: 100%;"></div>
- <xml id="toolbox" style="display: none">
+<xml id="toolbox" style="display: none">
   <category name="Math" colour="230">
     <block type="math_number"></block>
     <block type="math_arithmetic"></block>
@@ -20,20 +20,12 @@
   <category name="Logic" colour="100">
     <block type="controls_if"></block>
     <block type="logic_compare"></block>
-    <block type = "logic_operation"></block>
+    <block type="logic_operation"></block>
   </category>
   <category name="Loops" colour="50">
     <block type="controls_repeat_ext"></block>
   </category>
   <category name="Variables" custom="VARIABLE" colour="20"></category>
-    <block type="variables_set">
-      <field name="VAR">x</field>
-    </block>
-    <block type="variables_get">
-      <field name="VAR">x</field>
-    </block>
-  </category>
-    </category>
 </xml>
 
   <button type="button" onclick="compileAndRun()">Compile & Run (WABT)</button>
@@ -42,6 +34,7 @@
   <button type="button" onclick="compileCAndRun()">Compile & Run (C)</button> 
 
   <!-- Load WABT UMD bundle (exposes window.WabtModule) -->
+   
   <script src="https://unpkg.com/wabt@1.0.36/index.js"></script>
 
   <script type="module" src="./main.js"></script>

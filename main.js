@@ -2,7 +2,7 @@
 import { programToWat } from './ast_to_wat.js';
 import { programToC } from './ast_to_c.js';
 
-
+const variableTypes = new Map();
 let workspace;
 
 window.compileAndRun = async function compileAndRun() {
@@ -13,7 +13,7 @@ window.compileAndRun = async function compileAndRun() {
     const blockChain = blockChainToAST(topBlock);
     ast.push(...blockChain);
   }
-  const watSource = programToWat(ast);
+  const watSource = programToWat(ast, variableTypes);
 
   console.log('Generated WAT:\n', watSource);
 
@@ -246,29 +246,30 @@ function blockToAST(block) {
 
       const value = blockToAST(block.getInputTargetBlock('VALUE'));
 
-      // 👇 Infer type from the value AST node
+      // Infer type from value
       let varType = 'unknown';
       if (value.type === 'LiteralNumber') varType = 'number';
-      else if (value.type === 'LiteralString') varType = 'text';
+      else if (value.type === 'LiteralText') varType = 'text';
       else if (value.type === 'Identifier' && value.varType) varType = value.varType;
 
-      // 👇 Attach the type directly to the Blockly variable object
-      if (variable) variable.type = varType;
+      // ✅ Store variable type in your own map (not on the variable object)
+      variableTypes.set(name, varType);
 
       return {
         type: 'VariableDeclaration',
         name,
         value,
-        varType, // attach for downstream use if needed
+        varType, // still include in AST
       };
     }
-
     case 'variables_get': {
       const varId = block.getFieldValue('VAR');
       const variable = workspace.getVariableMap().getVariableById(varId);
       const name = variable?.name || 'unnamed';
 
-      const varType = variable?.type || 'unknown'; // 👈 retrieve the stored type
+      // ✅ Lookup the type from your own map
+      const varType = variableTypes.get(name) || 'unknown';
+      console.log(varType);
 
       return {
         type: 'Identifier',
