@@ -9,7 +9,13 @@ function printToOutput(text) {
   const area = document.getElementById('outputArea');
   area.textContent += text + '\n';
 }
+function readFromInput() {
+  return document.getElementById('inputField').value;
+}
 
+function clearOutput() {
+  document.getElementById('outputArea').textContent = '';
+}
 
 window.compileAndRun = async function compileAndRun() {
   // 1) Build AST and generate WAT
@@ -33,18 +39,26 @@ window.compileAndRun = async function compileAndRun() {
 
   // 5) Instantiate with our 'print' imports that write to the outputArea
   const importObject = {
-    env: {
-      print_text: (ptr, len) => {
-        const memory = instance.exports.memory;
-        const bytes  = new Uint8Array(memory.buffer, ptr, len);
-        const text   = new TextDecoder('utf8').decode(bytes);
-        printToOutput(text);
-      },
-      print_num: num => {
-        printToOutput(num.toString());
-      }
+  env: {
+    print_text: (ptr, len) => {
+      const memory = instance.exports.memory;
+      const bytes  = new Uint8Array(memory.buffer, ptr, len);
+      const text   = new TextDecoder('utf8').decode(bytes);
+      printToOutput(text);
+    },
+    print_num: num => {
+      printToOutput(num.toString());
+    },
+    // New import for input
+    read_input: () => {
+      const text = readFromInput();
+      // If WASM-function expects a number:
+      const n = parseInt(text, 10);
+      return Number.isNaN(n) ? 0 : n;
     }
-  };
+  }
+};
+
   const { instance } = await WebAssembly.instantiate(buffer, importObject);
 
   // 6) Call the exported 'main'
@@ -322,6 +336,9 @@ function blockToAST(block) {
 
 // Initialize on page load
 window.addEventListener('load', function() {
+  document.getElementById('clearOutput')
+          .addEventListener('click', clearOutput);
+          
   workspace = Blockly.inject('blocklyDiv', {
     toolbox: document.getElementById('toolbox')
   });
