@@ -267,7 +267,9 @@ function blockToAST(block) {
 
       // Infer type from value
       let varType = 'unknown';
+      console.log(value.type);
       if (value.type === 'LiteralNumber') varType = 'number';
+      else if (value.type === 'BinaryExpression') varType = 'number';
       else if (value.type === 'LiteralText') varType = 'text';
       else if (value.type === 'Identifier' && value.varType) varType = value.varType;
 
