@@ -143,7 +143,8 @@ function isNumericExpression(expr) {
     expr.type === 'LiteralNumber' ||
     expr.type === 'BinaryExpression' ||
     (expr.type === 'Identifier' && expr.varType === 'number') ||
-    (expr.type === 'CallExpression' && expr.callee.name === 'read_input')
+    (expr.type === 'CallExpression' &&
+      (expr.callee.name === 'read_input' || expr.callee.name === 'is_prime'))
   );
 }
 
@@ -188,6 +189,15 @@ function blockToAST(block) {
         callee: { type: 'Identifier', name: 'read_input' },
         arguments: []
     };
+
+    case 'is_prime': {
+    const input = blockToAST(block.getInputTargetBlock('NUM'));
+    return {
+      type: 'CallExpression',
+      callee: { type: 'Identifier', name: 'is_prime' },
+      arguments: [input]
+    };
+  }
 
     case 'math_arithmetic': {
       const opToken = block.getFieldValue('OP');
@@ -369,5 +379,21 @@ Blockly.defineBlocksWithJsonArray([
     "colour": 290,
     "tooltip": "Reads input from the text field",
     "helpUrl": ""
+  },
+  {
+    "type": "is_prime",
+    "message0": "%1 is prime",
+    "args0": [
+      {
+        "type": "input_value",
+        "name": "NUM",
+        "check": "Number"
+      }
+    ],
+    "output": "Boolean",
+    "colour": 230,
+    "tooltip": "Returns true if the number is a prime",
+    "helpUrl": ""
   }
+  
 ]);

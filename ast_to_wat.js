@@ -9,6 +9,7 @@ export function programToWat(astStatements, variableTypes = new Map()) {
     print_num: false,
     i32_pow: false,
     read_input: false,
+    is_prime: false,
   };
 
   const dataSegments = [];
@@ -62,6 +63,7 @@ export function programToWat(astStatements, variableTypes = new Map()) {
   if (usedFeatures.read_input) {
     lines.push('  (import "env" "read_input" (func $read_input (result i32)))');
   }
+  
   if (usedFeatures.i32_pow) {
     lines.push(`
   (func $i32_pow (param $base i32) (param $exp i32) (result i32)
@@ -87,6 +89,58 @@ export function programToWat(astStatements, variableTypes = new Map()) {
     local.get $result
   )`);
   }
+
+  if (usedFeatures.is_prime) {
+  lines.push(`
+  (func $is_prime (param $n i32) (result i32)
+  (local $i i32)
+
+  ;; if n < 2, return 0
+  local.get $n
+  i32.const 2
+  i32.lt_s
+  if (result i32)
+    i32.const 0
+  else
+    i32.const 2
+    local.set $i
+
+    block $break
+      loop $loop
+        ;; if i * i > n, break
+        local.get $i
+        local.get $i
+        i32.mul
+        local.get $n
+        i32.gt_s
+        if
+          br $break
+        end
+
+        ;; if n % i == 0, return 0 (not prime)
+        local.get $n
+        local.get $i
+        i32.rem_s
+        i32.eqz
+        if
+          i32.const 0
+          return
+        end
+
+        ;; i += 1
+        local.get $i
+        i32.const 1
+        i32.add
+        local.set $i
+
+        br $loop
+      end
+    end
+
+    i32.const 1
+  end
+)`);
+}
 
   lines.push('  (memory (export "memory") 1)');
 
@@ -284,6 +338,9 @@ function generateExpression(expr, ctx) {
       }
         else if (expr.callee.name === "read_input") {
         ctx.usedFeatures.read_input = true;
+      } 
+        else if (expr.callee.name === "is_prime") {
+          ctx.usedFeatures.is_prime = true;
       }
       for (const arg of expr.arguments) {
         code.push(...generateExpression(arg, ctx));
