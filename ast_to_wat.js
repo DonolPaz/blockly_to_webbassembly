@@ -176,6 +176,10 @@ function collectLocalsFromStatement(stmt, allLocals, loopContext) {
       allLocals.add(stmt.name);
       collectLocalsFromExpression(stmt.value, allLocals, loopContext);
       break;
+    case 'ChangeStatement':
+      allLocals.add(stmt.name);
+      collectLocalsFromExpression(stmt.delta, allLocals, loopContext);
+      break;
     case 'RepeatStatement':
       const loopId = loopContext.loopCounter++;
       const counterName = `counter_${loopId}`;
@@ -183,6 +187,7 @@ function collectLocalsFromStatement(stmt, allLocals, loopContext) {
       collectLocalsFromExpression(stmt.times, allLocals, loopContext);
       collectAllLocals(stmt.body, allLocals, loopContext);
       break;
+      
   }
 }
 
@@ -236,6 +241,16 @@ function generateStatement(stmt, ctx) {
       }
 
       lines.push(')');
+      return lines;
+    }
+    case 'ChangeStatement': {
+      const lines = [];
+
+      lines.push(`local.get $${stmt.name}`);
+      lines.push(...generateExpression(stmt.delta, ctx));
+      lines.push(`i32.add`);
+      lines.push(`local.set $${stmt.name}`);
+
       return lines;
     }
     case 'VariableDeclaration': {

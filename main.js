@@ -183,6 +183,19 @@ function blockToAST(block) {
         }
       };
     }
+    case 'math_change': {
+      const varId = block.getFieldValue('VAR');
+      const variable = workspace.getVariableMap().getVariableById(varId);
+      const name = variable?.name || 'unnamed';
+      const delta = blockToAST(block.getInputTargetBlock('DELTA'));
+
+      variableTypes.set(name, 'number'); // assume variable becomes number
+      return {
+        type: 'ChangeStatement',
+        name,
+        delta
+      };
+    }
     case 'read_input':
       return {
         type: 'CallExpression',
