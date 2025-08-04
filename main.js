@@ -142,7 +142,8 @@ function isNumericExpression(expr) {
   return (
     expr.type === 'LiteralNumber' ||
     expr.type === 'BinaryExpression' ||
-    (expr.type === 'Identifier' && expr.varType === 'number')
+    (expr.type === 'Identifier' && expr.varType === 'number') ||
+    (expr.type === 'CallExpression' && expr.callee.name === 'read_input')
   );
 }
 
@@ -181,6 +182,13 @@ function blockToAST(block) {
         }
       };
     }
+    case 'read_input':
+      return {
+        type: 'CallExpression',
+        callee: { type: 'Identifier', name: 'read_input' },
+        arguments: []
+    };
+
     case 'math_arithmetic': {
       const opToken = block.getFieldValue('OP');
 
@@ -272,8 +280,14 @@ function blockToAST(block) {
       else if (value.type === 'BinaryExpression') varType = 'number';
       else if (value.type === 'LiteralText') varType = 'text';
       else if (value.type === 'Identifier' && value.varType) varType = value.varType;
+      else if (
+        value.type === 'CallExpression' &&
+        value.callee?.name === 'read_input'
+      ) {
+        varType = 'number'; 
+      }
 
-      // ✅ Store variable type in your own map (not on the variable object)
+      // Store variable type in your own map (not on the variable object)
       variableTypes.set(name, varType);
 
       return {
@@ -345,3 +359,15 @@ window.addEventListener('load', function() {
     toolbox: document.getElementById('toolbox')
   });
 });
+
+//custom block input
+Blockly.defineBlocksWithJsonArray([
+  {
+    "type": "read_input",
+    "message0": "read input",
+    "output": "Number",  // or use "String" if you want text input instead
+    "colour": 290,
+    "tooltip": "Reads input from the text field",
+    "helpUrl": ""
+  }
+]);

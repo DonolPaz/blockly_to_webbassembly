@@ -8,6 +8,7 @@ export function programToWat(astStatements, variableTypes = new Map()) {
     print_text: false,
     print_num: false,
     i32_pow: false,
+    read_input: false,
   };
 
   const dataSegments = [];
@@ -57,6 +58,9 @@ export function programToWat(astStatements, variableTypes = new Map()) {
   }
   if (usedFeatures.print_num) {
     lines.push('  (import "env" "print_num" (func $print_num (param i32)))');
+  }
+  if (usedFeatures.read_input) {
+    lines.push('  (import "env" "read_input" (func $read_input (result i32)))');
   }
   if (usedFeatures.i32_pow) {
     lines.push(`
@@ -278,6 +282,9 @@ function generateExpression(expr, ctx) {
       } else if (expr.callee.name === "print_num") {
         ctx.usedFeatures.print_num = true;
       }
+        else if (expr.callee.name === "read_input") {
+        ctx.usedFeatures.read_input = true;
+      }
       for (const arg of expr.arguments) {
         code.push(...generateExpression(arg, ctx));
       }
@@ -299,6 +306,7 @@ function generateExpression(expr, ctx) {
 
       return [`local.get $${expr.name}`];
     }
+    
     case 'BinaryExpression': {
       const opMap = {
         add: 'i32.add',
