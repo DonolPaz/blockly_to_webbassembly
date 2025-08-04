@@ -59,10 +59,12 @@ window.compileAndRun = async function compileAndRun() {
   }
 };
 
-  const { instance } = await WebAssembly.instantiate(buffer, importObject);
+const { instance } = await WebAssembly.instantiate(buffer, importObject);
 
-  // 6) Call the exported 'main'
+  const t0 = performance.now();
   instance.exports.main?.();
+  const t1 = performance.now();
+  console.log("WASM time run in ms: " + (t1-t0));
 };
 
 
