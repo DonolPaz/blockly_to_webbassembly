@@ -23,7 +23,7 @@ window.compileAndRun = async function compileAndRun() {
   try {
     const topBlocks = workspace.getTopBlocks(true);
     if (topBlocks.length === 0) {
-      throw new Error("Programmet är tomt – lägg till block!");
+      throw new Error("Programmet är tomt - lägg till block!");
     }
 
     const ast = [];
@@ -52,7 +52,7 @@ window.compileAndRun = async function compileAndRun() {
           const text = readFromInput();
           const n = parseInt(text, 10);
           if (Number.isNaN(n)) {
-            throw new Error("Ogiltig input – skriv ett heltal.");
+            throw new Error("Ogiltig input - skriv ett heltal.");
           }
           return n;
         }
@@ -279,11 +279,24 @@ function blockToAST(block) {
         GTE: 'ge_s'
       };
 
+      const left = blockToAST(block.getInputTargetBlock('A'));
+      const right = blockToAST(block.getInputTargetBlock('B'));
+
+      // kontrollera om båda är nummer
+      const leftType = left.varType || left.type;
+      const rightType = right.varType || right.type;
+
+      const isText = (t) => t === 'text' || t === 'LiteralText';
+
+      if (isText(leftType) || isText(rightType)) {
+        throw new Error(`Jämförelseoperatorer (${op}) kan bara användas med nummer - du försöker jämföra text.`);
+      }
+
       return {
         type: 'BinaryExpression',
         operator: opMap[op],
-        left: blockToAST(block.getInputTargetBlock('A')),
-        right: blockToAST(block.getInputTargetBlock('B')),
+        left,
+        right,
       };
     }
     case 'math_number':
@@ -302,36 +315,38 @@ function blockToAST(block) {
 
       const value = blockToAST(block.getInputTargetBlock('VALUE'));
 
-      // Infer type from value
-      let varType = 'unknown';
-      console.log(value.type);
-      if (value.type === 'LiteralNumber') varType = 'number';
-      else if (value.type === 'BinaryExpression') varType = 'number';
-      else if (value.type === 'LiteralText') varType = 'text';
-      else if (value.type === 'Identifier' && value.varType) varType = value.varType;
+      let inferredType = 'unknown';
+      if (value.type === 'LiteralNumber') inferredType = 'number';
+      else if (value.type === 'BinaryExpression') inferredType = 'number';
+      else if (value.type === 'LiteralText') inferredType = 'text';
+      else if (value.type === 'Identifier' && value.varType) inferredType = value.varType;
       else if (
         value.type === 'CallExpression' &&
         value.callee?.name === 'read_input'
       ) {
-        varType = 'number'; 
+        inferredType = 'number';
       }
 
-      // Store variable type in your own map (not on the variable object)
-      variableTypes.set(name, varType);
+      const existingType = variableTypes.get(name);
+      if (existingType && existingType !== inferredType) {
+        throw new Error(`Typkonflikt: variabeln "${name}" är av typen "${existingType}", men du försöker sätta ett värde av typen "${inferredType}".`);
+      }
+
+      variableTypes.set(name, inferredType);
 
       return {
         type: 'VariableDeclaration',
         name,
         value,
-        varType, // still include in AST
+        varType: inferredType,
       };
     }
+
     case 'variables_get': {
       const varId = block.getFieldValue('VAR');
       const variable = workspace.getVariableMap().getVariableById(varId);
       const name = variable?.name || 'unnamed';
 
-      // ✅ Lookup the type from your own map
       const varType = variableTypes.get(name) || 'unknown';
       console.log(varType);
 
@@ -394,7 +409,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     "type": "read_input",
     "message0": "read input",
-    "output": "Number",  // or use "String" if you want text input instead
+    "output": "Number", 
     "colour": 290,
     "tooltip": "Reads input from the text field",
     "helpUrl": ""
