@@ -18,53 +18,57 @@ function clearOutput() {
 }
 
 window.compileAndRun = async function compileAndRun() {
-  // 1) Build AST and generate WAT
-  const topBlocks = workspace.getTopBlocks(true);
-  const ast = [];
-  for (const topBlock of topBlocks) {
-    const blockChain = blockChainToAST(topBlock);
-    ast.push(...blockChain);
-  }
-  const watSource = programToWat(ast, variableTypes);
+  clearOutput();
 
-  // 2) Show WAT in the <pre id="output">
-  document.getElementById('output').textContent = watSource;
-
-  // 3) Load WABT
-  const wabt = await window.WabtModule();
-
-  // 4) Parse WAT → binary
-  const wasmModule = wabt.parseWat('generated.wat', watSource);
-  const { buffer } = wasmModule.toBinary({ log: true });
-
-  // 5) Instantiate with our 'print' imports that write to the outputArea
-  const importObject = {
-  env: {
-    print_text: (ptr, len) => {
-      const memory = instance.exports.memory;
-      const bytes  = new Uint8Array(memory.buffer, ptr, len);
-      const text   = new TextDecoder('utf8').decode(bytes);
-      printToOutput(text);
-    },
-    print_num: num => {
-      printToOutput(num.toString());
-    },
-    // New import for input
-    read_input: () => {
-      const text = readFromInput();
-      // If WASM-function expects a number:
-      const n = parseInt(text, 10);
-      return Number.isNaN(n) ? 0 : n;
+  try {
+    const topBlocks = workspace.getTopBlocks(true);
+    if (topBlocks.length === 0) {
+      throw new Error("Programmet är tomt – lägg till block!");
     }
+
+    const ast = [];
+    for (const topBlock of topBlocks) {
+      const blockChain = blockChainToAST(topBlock);
+      ast.push(...blockChain);
+    }
+
+    const watSource = programToWat(ast, variableTypes);
+    document.getElementById('output').textContent = watSource;
+
+    const wabt = await window.WabtModule();
+    const wasmModule = wabt.parseWat('generated.wat', watSource);
+    const { buffer } = wasmModule.toBinary({ log: true });
+
+    const importObject = {
+      env: {
+        print_text: (ptr, len) => {
+          const memory = instance.exports.memory;
+          const bytes = new Uint8Array(memory.buffer, ptr, len);
+          const text = new TextDecoder('utf8').decode(bytes);
+          printToOutput(text);
+        },
+        print_num: num => printToOutput(num.toString()),
+        read_input: () => {
+          const text = readFromInput();
+          const n = parseInt(text, 10);
+          if (Number.isNaN(n)) {
+            throw new Error("Ogiltig input – skriv ett heltal.");
+          }
+          return n;
+        }
+      }
+    };
+
+    const { instance } = await WebAssembly.instantiate(buffer, importObject);
+
+    const t0 = performance.now();
+    instance.exports.main?.();
+    const t1 = performance.now();
+    console.log("WASM time run in ms: " + (t1 - t0));
+  } catch (err) {
+    printToOutput("🚨 Fel: " + err.message);
+    console.error(err);
   }
-};
-
-const { instance } = await WebAssembly.instantiate(buffer, importObject);
-
-  const t0 = performance.now();
-  instance.exports.main?.();
-  const t1 = performance.now();
-  console.log("WASM time run in ms: " + (t1-t0));
 };
 
 
