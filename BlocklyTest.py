@@ -17,15 +17,23 @@ def math_isPrime(n):
             return False
     return True
 
-test = 1
-start_time = time.time()  # Start timing
+runs = 100
+total_time = 0
 
-for count in range(10000):
-    test = (test if isinstance(test, Number) else 0) + 1
-    if math_isPrime(test):
-        # You can comment out the print to reduce clutter
-        print(test)
-        pass
+for i in range(runs):
+    test = 1
+    start_time = time.time()
 
-end_time = time.time()  # End timing
-print(f"✅ Python version took {(end_time - start_time):.4f} seconds")
+    for count in range(100000):
+        test = (test if isinstance(test, Number) else 0) + 1
+        if math_isPrime(test):
+            # Commented out to avoid clutter
+            print(test)
+            pass
+
+    elapsed = time.time() - start_time
+    total_time += elapsed
+    # print(f"Run {i+1}: {elapsed:.4f} seconds")
+
+avg_time = total_time / runs
+print(f"\n📊 Average time over {runs} runs: {avg_time:.4f} seconds")

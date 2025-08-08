@@ -1,6 +1,3 @@
-var test;
-const t0 = performance.now(); // Start timing
-
 function mathIsPrime(n) {
   if (n == 2 || n == 3) return true;
   if (isNaN(n) || n <= 1 || n % 1 !== 0 || n % 2 === 0 || n % 3 === 0) return false;
@@ -10,14 +7,26 @@ function mathIsPrime(n) {
   return true;
 }
 
-test = 1;
-for (var count = 0; count < 10000; count++) {
-  test = (typeof test === 'number' ? test : 0) + 1;
-  if (mathIsPrime(test)) {
-    // Comment out alert to avoid 1000+ popups
-    console.log(test);
+let runs = 100;
+let totalTime = 0;
+
+for (let i = 0; i < runs; i++) {
+  let test = 1;
+  const t0 = performance.now();
+
+  for (let count = 0; count < 100000; count++) {
+    test = (typeof test === 'number' ? test : 0) + 1;
+    if (mathIsPrime(test)) {
+      // Commented to avoid clutter
+      //console.log(test);
+    }
   }
+
+  const t1 = performance.now();
+  const elapsed = t1 - t0;
+  totalTime += elapsed;
+  //console.log(`Run ${i + 1}: ${elapsed.toFixed(2)} ms`);
 }
 
-const t1 = performance.now(); // End timing
-console.log(`✅ JS version took ${(t1 - t0).toFixed(2)} ms`);
+let avgTime = totalTime / runs;
+console.log(`\n📊 Average time over ${runs} runs: ${avgTime.toFixed(2)} ms`);

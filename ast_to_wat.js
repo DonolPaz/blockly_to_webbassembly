@@ -92,34 +92,85 @@ export function programToWat(astStatements, variableTypes = new Map()) {
 
   if (usedFeatures.is_prime) {
   lines.push(`
-  (func $is_prime (param $n i32) (result i32)
-  (local $i i32)
+(func $is_prime (param $n i32) (result i32)
+    (local $x i32)
+    (local $sqrt_n f64)
+    (local $sqrt_limit i32)
 
-  ;; if n < 2, return 0
-  local.get $n
-  i32.const 2
-  i32.lt_s
-  if (result i32)
-    i32.const 0
-  else
+    ;; if n == 2 or n == 3 return 1 (true)
+    local.get $n
     i32.const 2
-    local.set $i
+    i32.eq
+    if
+      i32.const 1
+      return
+    end
+    
+    local.get $n
+    i32.const 3
+    i32.eq
+    if
+      i32.const 1
+      return
+    end
+
+    ;; if n <= 1 return 0 (false)
+    local.get $n
+    i32.const 1
+    i32.le_s
+    if
+      i32.const 0
+      return
+    end
+
+    ;; if n % 2 == 0 or n % 3 == 0 return 0 (false)
+    local.get $n
+    i32.const 2
+    i32.rem_s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+    
+    local.get $n
+    i32.const 3
+    i32.rem_s
+    i32.eqz
+    if
+      i32.const 0
+      return
+    end
+
+    ;; Beräkna sqrt(n) med floating point (snabbt)
+    local.get $n
+    f64.convert_i32_s
+    f64.sqrt
+    i32.trunc_f64_s
+    local.set $sqrt_limit
+
+    ;; Implementera 6k±1 algoritm precis som JavaScript
+    ;; for x = 6; x <= sqrt_limit + 1; x += 6
+    i32.const 6
+    local.set $x
 
     block $break
       loop $loop
-        ;; if i * i > n, break
-        local.get $i
-        local.get $i
-        i32.mul
-        local.get $n
+        ;; if x - 1 > sqrt_limit break
+        local.get $x
+        i32.const 1
+        i32.sub
+        local.get $sqrt_limit
         i32.gt_s
         if
           br $break
         end
 
-        ;; if n % i == 0, return 0 (not prime)
+        ;; if n % (x - 1) == 0 return 0 (false)
         local.get $n
-        local.get $i
+        local.get $x
+        i32.const 1
+        i32.sub
         i32.rem_s
         i32.eqz
         if
@@ -127,19 +178,31 @@ export function programToWat(astStatements, variableTypes = new Map()) {
           return
         end
 
-        ;; i += 1
-        local.get $i
+        ;; if n % (x + 1) == 0 return 0 (false)  
+        local.get $n
+        local.get $x
         i32.const 1
         i32.add
-        local.set $i
+        i32.rem_s
+        i32.eqz
+        if
+          i32.const 0
+          return
+        end
+
+        ;; x += 6
+        local.get $x
+        i32.const 6
+        i32.add
+        local.set $x
 
         br $loop
       end
     end
 
+    ;; return true
     i32.const 1
-  end
-)`);
+  )`);
 }
 
   lines.push('  (memory (export "memory") 1)');
