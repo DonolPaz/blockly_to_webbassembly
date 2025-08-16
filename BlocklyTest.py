@@ -1,6 +1,7 @@
 import time
 from numbers import Number
 import math
+import statistics  # för enkel standardavvikelse
 
 def math_isPrime(n):
     if not isinstance(n, Number):
@@ -18,22 +19,26 @@ def math_isPrime(n):
     return True
 
 runs = 100
-total_time = 0
+times = []
 
 for i in range(runs):
     test = 1
+    testprimes = 0
     start_time = time.time()
 
     for count in range(100000):
         test = (test if isinstance(test, Number) else 0) + 1
         if math_isPrime(test):
-            # Commented out to avoid clutter
-            print(test)
+            testprimes = testprimes + 1
             pass
 
     elapsed = time.time() - start_time
-    total_time += elapsed
-    # print(f"Run {i+1}: {elapsed:.4f} seconds")
+    times.append(elapsed)
 
-avg_time = total_time / runs
-print(f"\n📊 Average time over {runs} runs: {avg_time:.4f} seconds")
+avg_time = sum(times) / runs
+std_dev = statistics.stdev(times)  # sample standard deviation
+cv_percent = (std_dev / avg_time) * 100
+
+print(f"\n📊 Average time over {runs} runs: {avg_time:.6f} seconds")
+print(f"📉 Standard deviation: {std_dev:.6f} seconds")
+print(f"📈 CV (%): {cv_percent:.2f}")
