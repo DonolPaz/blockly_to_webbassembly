@@ -142,14 +142,14 @@ export function programToWat(astStatements, variableTypes = new Map()) {
       return
     end
 
-    ;; Beräkna sqrt(n) med floating point (snabbt)
+    ;; Beräkna sqrt(n) med floating point
     local.get $n
     f64.convert_i32_s
     f64.sqrt
     i32.trunc_f64_s
     local.set $sqrt_limit
 
-    ;; Implementera 6k±1 algoritm precis som JavaScript
+    ;; Implementera 6k±1 algoritm
     ;; for x = 6; x <= sqrt_limit + 1; x += 6
     i32.const 6
     local.set $x

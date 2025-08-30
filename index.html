@@ -4,52 +4,113 @@
   <meta charset="UTF-8" />
   <title>Blockly till WebAssembly</title>
   <script src="https://unpkg.com/blockly@11.1.1/blockly.min.js"></script>
+  <script src="https://unpkg.com/wabt@1.0.36/index.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 10px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    #container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    #blocklyDiv {
+      height: 500px;
+      width: 50%;
+      border: 1px solid #ccc;
+    }
+
+    #rightPanel {
+      display: flex;
+      flex-direction: column;
+      width: 50%;
+      gap: 15px;
+    }
+
+    .panelBox {
+      background: #f7f7f7;
+      padding: 8px;
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow: auto;
+    }
+
+    label {
+      display: block;
+      margin-top: 5px;
+      margin-bottom: 3px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 4px 6px;
+      margin-bottom: 5px;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 5px;
+      padding: 5px 10px;
+    }
+  </style>
 </head>
 <body>
   <h1>Blockly → WebAssembly</h1>
-  <div id="blocklyDiv" style="height: 400px; width: 100%;"></div>
-<xml id="toolbox" style="display: none">
-  <category name="Math" colour="230">
-    <block type="math_number"></block>
-    <block type="math_arithmetic"></block>
-    <block type="is_prime"></block>
-  </category>
-  <category name="Text" colour="160">
-    <block type="text"></block>
-    <block type="text_print"></block>
-  </category>
-  <category name="Logic" colour="100">
-    <block type="controls_if"></block>
-    <block type="logic_compare"></block>
-    <block type="logic_operation"></block>
-  </category>
-  <category name="Loops" colour="50">
-    <block type="controls_repeat_ext"></block>
-  </category>
-  <category name="Variables" custom="VARIABLE" colour="20"></category>
-  <category name="Input/Output" colour="290">
-  <block type="read_input"></block>
-</category>
-</xml>
+
+  <div id="container">
+    <div id="blocklyDiv"></div>
+
+    <div id="rightPanel">
+      
+      <div>
+        <h3>Generated WAT</h3>
+        <pre id="output" class="panelBox"></pre>
+      </div>
+
+      <div>
+        <h3>Program Output</h3>
+        <label for="inputField">Input:</label>
+        <input type="text" id="inputField" placeholder="Skriv ett nummer.."/>
+        <pre id="outputArea" class="panelBox"></pre>
+        <button type="button" id="clearOutput">Clear Output</button>
+      </div>
+
+    </div>
+  </div>
 
   <button type="button" onclick="compileAndRun()">Compile & Run (WABT)</button>
-  <pre id="output"></pre>
 
-  <!--<button type="button" onclick="compileCAndRun()">Compile & Run (C)</button> -->
-  
-  <button type="button" id="clearOutput">Clear Output</button>
-
-  <!-- Input field -->
-  <label for="inputField">Input:</label>
-  <input type="text" id="inputField" placeholder="Skriv ett nummer.." />
-
-  <!-- Output field -->
-  <label for="outputArea">Output:</label>
-  <pre id="outputArea" style="background:#f7f7f7; padding:8px;"></pre>
-
-  <!-- Load WABT UMD bundle (exposes window.WabtModule) -->
-   
-  <script src="https://unpkg.com/wabt@1.0.36/index.js"></script>
+  <!-- Blockly toolbox -->
+  <xml id="toolbox" style="display: none">
+    <category name="Math" colour="230">
+      <block type="math_number"></block>
+      <block type="math_arithmetic"></block>
+      <block type="is_prime"></block>
+    </category>
+    <category name="Text" colour="160">
+      <block type="text"></block>
+      <block type="text_print"></block>
+    </category>
+    <category name="Logic" colour="100">
+      <block type="controls_if"></block>
+      <block type="logic_compare"></block>
+      <block type="logic_operation"></block>
+    </category>
+    <category name="Loops" colour="50">
+      <block type="controls_repeat_ext"></block>
+    </category>
+    <category name="Variables" custom="VARIABLE" colour="20"></category>
+    <category name="Input/Output" colour="290">
+      <block type="read_input"></block>
+    </category>
+  </xml>
 
   <script type="module" src="./main.js"></script>
 </body>
